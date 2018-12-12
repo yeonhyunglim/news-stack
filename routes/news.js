@@ -2,7 +2,6 @@ module.exports = function(app, conn, upload) {
   var express = require('express');
   var router = express.Router();
   var category = require('../lib/category.js');
-
   /* 목록 */
   router.get('/', (req, res) => {
     var selectedCategory = req.query.category;
@@ -141,24 +140,60 @@ module.exports = function(app, conn, upload) {
   });
 
   /* 상세보기 */
+  /*교수님이 주신 코드*/
+
+
   router.get('/:id', (req, res) => {
     var id = req.params.id;
-    var sql = "SELECT a.*, c.title as `category_title` "
+    /* 코멘트 리스트 만들기 */
+    var comment_list = [];
+    /* DB에서 코멘트까지 불러오기 */
+    var sql = "SELECT a.*, c.title as `category_title`, m.comment, m.inserted as `comment_inserted` "
               + "FROM news.article a "
               + "INNER JOIN news.category c on a.category = c.id "
+              + "LEFT JOIN news.comment m on m.articleId = a.id "
               + "WHERE a.id=?";
 
     conn.query(sql, [id], function(err, news, fields){
+
       if(err){
         console.log(err);
         res.status(500).send('Internal Server Error: ' + err);
       } else {
+        /* DB에서 불러온 코멘트를 리스트에 저장 */
+        for (var i in news) {
+          comment_list.push({
+            'comment': news[i].comment,
+            'inserted': news[i].comment_inserted
+          })
+        };
+
+
         res.render('news/detail', {
           news: news[0],
+          /* comments라는 이름으로 프론트에 보내기 */
+          comments: comment_list
         });
       }
     });
   });
 
+  router.post('/comment', (req, res) => {
+    var comment = req.body.comment;
+    var articleId = req.body.articleId;
+
+    var sql = 'INSERT INTO comment (`articleId`, `comment`, `inserted`) VALUES(?, ?, now())';
+
+    conn.query(sql, [articleId, comment], function(err, result, fields){
+      if(err){
+        console.log(err);
+        res.status(500).send('Internal Server Error: '+err);
+      } else{
+        res.redirect('/news/' + articleId);
+      }
+    });
+  });
+
+
   return router;
-};
+  };
